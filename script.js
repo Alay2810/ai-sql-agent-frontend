@@ -18,7 +18,7 @@ window.addEventListener('DOMContentLoaded', () => {
 // Load all tables from backend
 async function loadTables() {
   try {
-    const response = await fetch('http://localhost:5000/tables');
+    const response = await fetch(`${API_BASE_URL}/tables`);
     const data = await response.json();
     
     const container = document.getElementById('tableListContainer');
@@ -212,7 +212,7 @@ function refreshTables() {
         // Show error and reset button
         setTimeout(() => {
           btn.innerHTML = originalText;
-          alert('Failed to refresh tables. Check if backend is running at http://localhost:5000\n\nError: ' + err.message);
+          alert('Failed to refresh tables. Check if backend is running at ' + API_BASE_URL + '\n\nError: ' + err.message);
         }, 1000);
       });
   } else {
@@ -220,7 +220,7 @@ function refreshTables() {
     console.log('⚠️ Button not found, refreshing anyway...');
     loadTables().catch(err => {
       console.error('❌ Refresh failed:', err);
-      alert('Failed to refresh tables. Check if backend is running at http://localhost:5000');
+      alert('Failed to refresh tables. Check if backend is running at ' + API_BASE_URL);
     });
   }
 }
@@ -254,7 +254,7 @@ async function uploadFile() {
     formData.append('file', file);
     formData.append('tableName', tableName);
     
-    const response = await fetch('http://localhost:5000/upload', {
+    const response = await fetch(`${API_BASE_URL}/upload`, {
       method: 'POST',
       body: formData
     });
@@ -305,7 +305,7 @@ async function askQuestion() {
   document.getElementById('warningOutput').style.display = 'none';
   
   try {
-    const response = await fetch('http://localhost:5000/ask', {
+    const response = await fetch(`${API_BASE_URL}/ask`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
@@ -418,7 +418,7 @@ async function downloadData(format) {
   }
   
   try {
-    const response = await fetch('http://localhost:5000/download', {
+    const response = await fetch(`${API_BASE_URL}/download`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -473,7 +473,7 @@ async function viewFullTable(tableName) {
 async function loadFullTableData() {
   try {
     const response = await fetch(
-      `http://localhost:5000/table/${fullTableData.name}/full?offset=${fullTableData.offset}&limit=${fullTableData.limit}`
+      `${API_BASE_URL}/table/${fullTableData.name}/full?offset=${fullTableData.offset}&limit=${fullTableData.limit}`
     );
     const data = await response.json();
     
@@ -529,7 +529,7 @@ async function downloadFullTable(format) {
   }
   
   try {
-    const response = await fetch('http://localhost:5000/download', {
+    const response = await fetch(`${API_BASE_URL}/download`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -580,7 +580,7 @@ function showInsertModal(tableName) {
   title.textContent = `➕ Insert Row into ${tableName}`;
   
   // Get table schema
-  fetch(`http://localhost:5000/table/${tableName}/preview`)
+  fetch(`${API_BASE_URL}/table/${tableName}/preview`)
     .then(res => res.json())
     .then(data => {
       const schema = data.schema;
@@ -622,7 +622,7 @@ async function executeInsert(event, tableName) {
   });
   
   try {
-    const response = await fetch('http://localhost:5000/crud', {
+    const response = await fetch(`${API_BASE_URL}/crud`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -679,7 +679,7 @@ async function executeUpdateViaAI(event, tableName) {
   }
   
   try {
-    const response = await fetch('http://localhost:5000/ask', {
+    const response = await fetch(`${API_BASE_URL}/ask`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -735,7 +735,7 @@ async function executeDeleteViaAI(event, tableName) {
   }
   
   try {
-    const response = await fetch('http://localhost:5000/ask', {
+    const response = await fetch(`${API_BASE_URL}/ask`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -767,7 +767,7 @@ function confirmDropTable(tableName) {
   
   confirmBtn.onclick = async () => {
     try {
-      const response = await fetch('http://localhost:5000/crud', {
+      const response = await fetch(`${API_BASE_URL}/crud`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

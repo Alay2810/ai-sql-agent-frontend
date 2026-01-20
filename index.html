@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI SQL Workspace</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  
+  <!-- LEFT SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2>🤖 AI SQL Workspace</h2>
+      <p>Drag tables to workspace</p>
+    </div>
+    
+    <div class="upload-section">
+      <input type="file" id="fileInput" accept=".csv,.xlsx,.xls,.json" />
+      <button onclick="uploadFile()" class="btn-primary">Upload File</button>
+      <div id="uploadStatus" class="status-message"></div>
+    </div>
+    
+    <div class="table-list">
+      <div id="tableListContainer">
+        <p class="no-tables">No tables yet. Upload a file to get started.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content">
+    
+    <!-- TOP BAR -->
+    <div class="top-bar">
+      <div>
+        <h1>🎯 AI SQL Workspace</h1>
+        <p id="activeTablesInfo" class="active-tables-info">No tables selected. Drag tables from sidebar.</p>
+      </div>
+    </div>
+
+    <!-- WORKSPACE DROP ZONE -->
+    <div class="workspace-dropzone" id="workspaceDropzone">
+      <div class="dropzone-content">
+        <div class="dropzone-icon">📊</div>
+        <h3>Drag & Drop Tables Here</h3>
+        <p>Select one or multiple tables from the left sidebar to start querying</p>
+      </div>
+      
+      <!-- Active Tables Display -->
+      <div class="active-tables" id="activeTables" style="display:none;">
+        <h4>Active Tables:</h4>
+        <div id="activeTablesList" class="active-tables-list"></div>
+      </div>
+    </div>
+
+    <!-- QUESTION SECTION -->
+    <div class="question-section" id="questionSection" style="display:none;">
+      <h3>💬 Ask a Question</h3>
+      <p class="hint">Query single or multiple tables using plain English (supports JOIN, UNION, aggregations)</p>
+      <textarea 
+        id="questionInput" 
+        placeholder="Ask a question about your data..."
+        rows="4"
+      ></textarea>
+      <div class="question-actions">
+        <button onclick="askQuestion()" class="btn-ask">🚀 Execute Query</button>
+        <button onclick="clearWorkspace()" class="btn-secondary">🗑️ Clear Workspace</button>
+      </div>
+    </div>
+
+    <!-- RESULTS SECTION -->
+    <div class="results-section" id="resultsSection" style="display:none;">
+      
+      <div class="result-panel">
+        <div class="result-header">
+          <h3>📝 Generated SQL</h3>
+          <button onclick="copySQL()" class="btn-small">📋 Copy</button>
+        </div>
+        <pre id="sqlOutput" class="code-block"></pre>
+        <div id="warningOutput" class="warning-box" style="display:none;"></div>
+      </div>
+
+      <div class="result-panel">
+        <div class="result-header">
+          <h3>📊 Query Results (<span id="rowCount">0</span> rows)</h3>
+          <div class="result-actions">
+            <button onclick="downloadData('xlsx')" class="btn-download">📥 Excel</button>
+            <button onclick="downloadData('csv')" class="btn-download">📥 CSV</button>
+          </div>
+        </div>
+        <div class="table-container" id="resultsTableContainer">
+          <table id="resultsTable"></table>
+        </div>
+        <div id="paginationControls" class="pagination-controls" style="display:none;">
+          <button onclick="loadMoreResults()" class="btn-small">Load More Rows</button>
+        </div>
+      </div>
+
+      <div class="result-panel">
+        <h3>💡 Business Explanation</h3>
+        <div id="explanationOutput" class="explanation-box"></div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- MODAL FOR FULL TABLE VIEW -->
+  <div id="fullTableModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="fullTableTitle">Table View</h2>
+        <span class="modal-close" onclick="closeFullTableView()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="modal-actions">
+          <input type="text" id="searchInput" placeholder="🔍 Search..." onkeyup="searchTable()">
+          <button onclick="downloadFullTable('xlsx')" class="btn-download">📥 Excel</button>
+          <button onclick="downloadFullTable('csv')" class="btn-download">📥 CSV</button>
+        </div>
+        <div class="table-container">
+          <table id="fullTableData"></table>
+        </div>
+        <div id="fullTablePagination" class="pagination-controls">
+          <button onclick="loadFullTablePage('prev')" id="prevPageBtn" class="btn-small">← Previous</button>
+          <span id="pageInfo">Page 1</span>
+          <button onclick="loadFullTablePage('next')" id="nextPageBtn" class="btn-small">Next →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL FOR CRUD OPERATIONS -->
+  <div id="crudModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="crudModalTitle">CRUD Operation</h2>
+        <span class="modal-close" onclick="closeCrudModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div id="crudModalContent"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIRMATION MODAL -->
+  <div id="confirmModal" class="modal">
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <h2>⚠️ Confirm Action</h2>
+        <span class="modal-close" onclick="closeConfirmModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <p id="confirmMessage">Are you sure?</p>
+        <div class="modal-actions">
+          <button onclick="closeConfirmModal()" class="btn-secondary">Cancel</button>
+          <button id="confirmBtn" class="btn-danger">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

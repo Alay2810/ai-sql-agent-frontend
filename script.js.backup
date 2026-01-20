@@ -1,0 +1,316 @@
+// Global state
+let currentTable = null;
+let currentResults = null;
+
+// Initialize on page load
+window.addEventListener('DOMContentLoaded', () => {
+  loadTables();
+});
+
+// Load all tables from backend
+async function loadTables() {
+  try {
+    const response = await fetch('http://localhost:5000/tables');
+    const data = await response.json();
+    
+    const container = document.getElementById('tableListContainer');
+    
+    if (!data.tables || data.tables.length === 0) {
+      container.innerHTML = '<p class="no-tables">No tables yet. Upload a file to get started.</p>';
+      return;
+    }
+    
+    container.innerHTML = '';
+    
+    data.tables.forEach(table => {
+      const item = document.createElement('div');
+      item.className = 'table-item';
+      item.onclick = () => selectTable(table.tableName);
+      
+      item.innerHTML = `
+        <div class="table-item-name">${table.tableName}</div>
+        <div class="table-item-info">
+          ${table.columnCount} columns | ${table.rowCount || 0} rows
+        </div>
+      `;
+      
+      container.appendChild(item);
+    });
+    
+    console.log(`Loaded ${data.tables.length} tables`);
+  } catch (err) {
+    console.error('Error loading tables:', err);
+    showStatus('Error loading tables: ' + err.message, 'error');
+  }
+}
+
+// Refresh tables list
+function refreshTables() {
+  loadTables();
+}
+
+// Select a table
+async function selectTable(tableName) {
+  console.log('Selected table:', tableName);
+  currentTable = tableName;
+  
+  // Update UI
+  document.getElementById('currentTableName').textContent = tableName;
+  
+  // Highlight selected table
+  document.querySelectorAll('.table-item').forEach(item => {
+    item.classList.remove('active');
+    if (item.querySelector('.table-item-name').textContent === tableName) {
+      item.classList.add('active');
+    }
+  });
+  
+  // Load preview
+  await loadTablePreview(tableName);
+  
+  // Show question section
+  document.getElementById('questionSection').style.display = 'block';
+  
+  // Hide results
+  document.getElementById('resultsSection').style.display = 'none';
+}
+
+// Load table preview
+async function loadTablePreview(tableName) {
+  try {
+    const response = await fetch(`http://localhost:5000/table/${tableName}/preview`);
+    const data = await response.json();
+    
+    if (data.error) {
+      console.error('Preview error:', data.error);
+      return;
+    }
+    
+    // Show preview section
+    document.getElementById('previewSection').style.display = 'block';
+    
+    // Render preview table
+    renderTable(data.preview, 'previewTable');
+    
+    // Show table info
+    const info = `${data.columnCount} columns | ${data.rowCount} rows shown (first 10)`;
+    document.getElementById('tableInfo').textContent = info;
+    
+  } catch (err) {
+    console.error('Error loading preview:', err);
+  }
+}
+
+// Upload file
+async function uploadFile() {
+  const fileInput = document.getElementById('fileInput');
+  const file = fileInput.files[0];
+  
+  if (!file) {
+    showStatus('Please select a file', 'error');
+    return;
+  }
+  
+  // Auto-generate table name from filename (remove extension and special chars)
+  let tableName = file.name
+    .replace(/\.(csv|xlsx?|json)$/i, '')  // Remove extension
+    .replace(/[^a-zA-Z0-9]/g, '_')        // Replace ALL special chars with underscore
+    .replace(/_+/g, '_')                  // Replace multiple underscores with single
+    .replace(/^_|_$/g, '')                // Remove leading/trailing underscores
+    .toLowerCase();                        // Convert to lowercase
+  
+  // Ensure table name starts with letter
+  if (!/^[a-z]/.test(tableName)) {
+    tableName = 't_' + tableName;
+  }
+  
+  console.log('Original filename:', file.name);
+  console.log('Generated table name:', tableName);
+  
+  showStatus('Uploading...', 'success');
+  
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('tableName', tableName);
+    
+    console.log('Sending to backend:', { tableName, fileName: file.name });
+    
+    const response = await fetch('http://localhost:5000/upload', {
+      method: 'POST',
+      body: formData
+    });
+    
+    console.log('Response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Server error: ${response.status} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Response data:', data);
+    
+    if (data.error) {
+      showStatus('Error: ' + data.error, 'error');
+    } else {
+      showStatus(`Success! Table "${tableName}" created with ${data.rowCount} rows`, 'success');
+      
+      // Clear inputs
+      fileInput.value = '';
+      
+      // Refresh table list
+      setTimeout(() => {
+        loadTables();
+        selectTable(tableName);
+      }, 500);
+    }
+  } catch (err) {
+    console.error('Upload error:', err);
+    showStatus('Upload failed: ' + err.message, 'error');
+  }
+}
+
+// Ask question
+async function askQuestion() {
+  const question = document.getElementById('questionInput').value.trim();
+  
+  if (!currentTable) {
+    alert('Please select a table first');
+    return;
+  }
+  
+  if (!question) {
+    alert('Please enter a question');
+    return;
+  }
+  
+  // Show loading
+  document.getElementById('sqlOutput').textContent = 'Generating SQL...';
+  document.getElementById('resultsTable').innerHTML = '<tr><td class="loading">Executing query...</td></tr>';
+  document.getElementById('explanationOutput').textContent = 'Processing...';
+  document.getElementById('resultsSection').style.display = 'block';
+  
+  try {
+    const response = await fetch('http://localhost:5000/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ table: currentTable, question })
+    });
+    
+    const data = await response.json();
+    
+    if (data.error) {
+      document.getElementById('sqlOutput').textContent = 'Error: ' + data.error;
+      document.getElementById('resultsTable').innerHTML = '';
+      document.getElementById('explanationOutput').textContent = '';
+      return;
+    }
+    
+    // Display SQL
+    document.getElementById('sqlOutput').textContent = data.sql;
+    
+    // Display results
+    renderTable(data.results, 'resultsTable');
+    currentResults = data.results;
+    
+    // Display explanation
+    document.getElementById('explanationOutput').textContent = data.explanation;
+    
+    // Show row count
+    document.getElementById('rowCount').textContent = data.rowCount || data.results.length;
+    
+    // Show download button if results exist
+    if (data.results && data.results.length > 0) {
+      document.getElementById('downloadBtn').style.display = 'inline-block';
+    }
+    
+  } catch (err) {
+    console.error('Query error:', err);
+    document.getElementById('sqlOutput').textContent = 'Error: ' + err.message;
+  }
+}
+
+// Render table
+function renderTable(data, tableId) {
+  const table = document.getElementById(tableId);
+  table.innerHTML = '';
+  
+  if (!data || data.length === 0) {
+    table.innerHTML = '<tr><td style="text-align:center; padding:20px; color:#95a5a6;">No results</td></tr>';
+    return;
+  }
+  
+  // Header
+  const headerRow = document.createElement('tr');
+  Object.keys(data[0]).forEach(key => {
+    const th = document.createElement('th');
+    th.textContent = key;
+    headerRow.appendChild(th);
+  });
+  table.appendChild(headerRow);
+  
+  // Rows
+  data.forEach(row => {
+    const tr = document.createElement('tr');
+    Object.values(row).forEach(value => {
+      const td = document.createElement('td');
+      td.textContent = value !== null && value !== undefined ? value : 'NULL';
+      tr.appendChild(td);
+    });
+    table.appendChild(tr);
+  });
+}
+
+// Download results as Excel
+async function downloadExcel() {
+  if (!currentResults || currentResults.length === 0) {
+    alert('No results to download');
+    return;
+  }
+  
+  try {
+    const response = await fetch('http://localhost:5000/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        data: currentResults,
+        tableName: currentTable
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error('Export failed');
+    }
+    
+    // Download file
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${currentTable}_results_${Date.now()}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    
+    console.log('Excel file downloaded');
+  } catch (err) {
+    console.error('Download error:', err);
+    alert('Failed to download Excel: ' + err.message);
+  }
+}
+
+// Show status message
+function showStatus(message, type) {
+  const statusDiv = document.getElementById('uploadStatus');
+  statusDiv.textContent = message;
+  statusDiv.className = `status-message ${type}`;
+  statusDiv.style.display = 'block';
+  
+  if (type === 'success') {
+    setTimeout(() => {
+      statusDiv.style.display = 'none';
+    }, 3000);
+  }
+}
